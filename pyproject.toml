@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "asof"
+name = "ts-asof"
 version = "0.1.0"
-description = "Reconstruct versioned time series as they appeared at any point in time"
+description = "A (very preliminary) library for building versioned time series as they appeared at any point in time."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
-keywords = ["time-series", "versioning", "as-of", "revision", "backtesting"]
+keywords = ["time-series", "versioning", "as-of", "revision", "backtest", "nowcast", "epidata"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",

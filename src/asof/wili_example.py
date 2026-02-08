@@ -5,7 +5,7 @@ from asof.sources import DelphiEpidata
 wili_data = Dataset(
     data_source=DelphiEpidata(
         series="wili",
-        regions=["nat"],
+        regions=["nat", "al"],
         api_key="94c47e7d24c87",  # or set DELPHI_API_KEY env var and omit this
     ),
     start_date=201650,

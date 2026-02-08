@@ -155,7 +155,7 @@ def _build_single_entity(
         delta = source.fetch_revision(version=w, start=start_yw, end=w)
 
         if delta is None:
-            logger.info("[%d/%d] version=%d returned no data.", i, total, w)
+            logger.info("[%d/%d] version=%d returned no data.", w)
             time.sleep(api_sleep)
             continue
 
