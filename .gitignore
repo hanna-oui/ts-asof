@@ -1,0 +1,28 @@
+# --- Python Standards ---
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv/
+env/
+venv/
+build/
+dist/
+*.egg-info/
+
+# uv & Dependencies 
+# We keep uv.lock in the repo, but ignore the tool's internal cache
+.uv/
+
+# Library Specific: caches
+**/deltas/
+**/base.parquet
+**/finalized.parquet
+**/max_version_lookup.json
+**/delta_metadata.json
+BUILD_COMPLETE
+
+# OS / IDE 
+.DS_Store
+.vscode/
+.idea/
