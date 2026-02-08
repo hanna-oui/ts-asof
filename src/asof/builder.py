@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from tqdm import tqdm  # Add this to your imports
 import time
 from pathlib import Path
 
@@ -108,8 +109,8 @@ def _build_single_entity(
     init_version = step_index(time_indices, start, init_window - 1)
     if init_version is None:
         raise ValueError(
-            f"""Cannot step ahead from {start} to {start+init_window}.
-                Please specify a shorter initial step than {init_window}."""
+            f"init_window={init_window} exceeds available indices "
+            f"({len(time_indices)}). Use a value <= {len(time_indices)}."
         )
 
     base_series = build_base(finalized_df, init_version, version_col, time_col)
@@ -136,26 +137,21 @@ def _build_single_entity(
         delta_metadata: dict[int, dict] = {}
 
     versions_to_process = time_indices[time_indices.index(init_version):]
-    total = len(versions_to_process)
-    report_every = max(total // 10, 1)
-    print(f"asof: Building cache — {total} versions to fetch.")
 
-    for i, w in enumerate(versions_to_process, 1):
-        if i % report_every == 0:
-            print(f"asof: [{i}/{total}] versions processed.")
+    for w in tqdm(versions_to_process, desc="Building cache", unit="version"):
         file_path = delta_dir / f"asof={w}.parquet"
 
         # resumption: skip already-cached deltas
         if file_path.exists():
-            logger.info("[%d/%d] version=%d already cached, skipping.", i, total, w)
-            start_yw = earliest_active_index(time_indices, max_version_dict, 
+            logger.info("version=%d already cached, skipping.", w)
+            start_yw = earliest_active_index(time_indices, max_version_dict,
                                              w, start_yw)
             if start_yw is None:
                 logger.warning("version=%d → start=None, stopping.", w)
                 break
             continue
 
-        logger.info("[%d/%d] Fetching version=%d …", i, total, w)
+        logger.info("Fetching version=%d …", w)
         delta = source.fetch_revision(version=w, start=start_yw, end=w)
 
         if delta is None:
@@ -192,8 +188,6 @@ def _build_single_entity(
 
     with open(target_dir / "delta_metadata.json", "w") as f:
         json.dump(delta_metadata, f, indent=4)
-
-    print(f"asof: Cache build complete.")
 
 
 # ── multi-entity build ────────────────────────────────────────────────────
@@ -238,9 +232,10 @@ def _build_multi_entity(
         init_issue = step_index(time_indices, start, init_window - 1)
         if init_issue is None:
             raise ValueError(
-                f"""Cannot step ahead from {start} for entity={entity_val}
-                Please specify a shorter initial step than {init_window}."""
-            ) # this could be moved earlier. 
+                f"init_window={init_window} exceeds available indices "
+                f"({len(time_indices)}) for entity={entity_val}. "
+                f"Use a value <= {len(time_indices)}."
+            )
 
         base = build_base(entity_df, init_issue, version_col, time_col)
         base.to_parquet(entity_dir / "base.parquet")
@@ -281,13 +276,8 @@ def _build_multi_entity(
 
     # ── delta loop: one fetch per version ─────────────────────────────
     versions_to_process = global_indices[global_indices.index(global_init):]
-    total = len(versions_to_process)
-    report_every = max(total // 10, 1)
-    print(f"asof: Building cache — {total} versions to fetch across {len(entities)} entities.")
 
-    for i, w in enumerate(versions_to_process, 1):
-        if i % report_every == 0:
-            print(f"asof: [{i}/{total}] versions processed.")
+    for w in tqdm(versions_to_process, desc=f"Building cache ({len(entities)} entities)", unit="version"):
         # widest start needed across active entities
         active_starts = [
             s["start_yw"]
@@ -300,11 +290,11 @@ def _build_multi_entity(
 
         min_start = min(active_starts)
 
-        logger.info("[%d/%d] Fetching version=%d …", i, total, w)
+        logger.info("Fetching version=%d …", w)
         revision_df = source.fetch_revision(version=w, start=min_start, end=w)
 
         if revision_df is None:
-            logger.info("[%d/%d] version=%d returned no data.", i, total, w)
+            logger.info("version=%d returned no data.", w)
             time.sleep(api_sleep)
             continue
 
@@ -366,7 +356,6 @@ def _build_multi_entity(
         with open(state["entity_dir"] / "delta_metadata.json", "w") as f:
             json.dump(state["delta_metadata"], f, indent=4)
 
-    print(f"asof: Cache build complete.")
     logger.info("Multi-entity build complete: %d entities", len(entities))
 
 
