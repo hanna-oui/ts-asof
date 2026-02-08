@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "asof"
+version = "0.1.0"
+description = "Reconstruct versioned time series as they appeared at any point in time"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+keywords = ["time-series", "versioning", "as-of", "revision", "backtesting"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+
+dependencies = [
+    "delphi-epidata>=4.1.25",
+    "pandas>=2.0",
+    "pyarrow>=14.0",
+]
+
+[project.optional-dependencies]
+epidata = [
+    "delphi-epidata>=4.1",
+    "python-dotenv>=1.0",
+]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/asof"]
