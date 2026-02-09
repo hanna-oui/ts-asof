@@ -23,7 +23,7 @@ A note on dependencies. The current iteration requires `epidata` as it was desig
 
 ## Usage
 
-Please see the */examples/wili_example.ipynb * for a demo and extra notes on usage. 
+Please see the */examples/wili_example.ipynb* for a demo and extra notes on usage. 
 
 ## Algorithm
 **Step 1: Build Phase**
