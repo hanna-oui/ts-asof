@@ -450,13 +450,31 @@ def reconstruct_asof(
             return None
 
     start_key = f"start_{time_col}"
+    available_versions = sorted(int(k) for k in delta_metadata)
+
+    def _resolve_version(version: int) -> int | None:
+        """Find *version* in delta_metadata, or fall back to the latest
+        available version <= *version*.  Returns ``None`` when nothing
+        qualifies."""
+        if str(version) in delta_metadata:
+            return version
+        candidates = [v for v in available_versions if v <= version]
+        if not candidates:
+            return None
+        fallback = candidates[-1]
+        logger.info(
+            "Version %d not in delta metadata, falling back to %d.",
+            version, fallback,
+        )
+        return fallback
 
     result: list[pd.DataFrame] = []
-    current_version = target_version
+    current_version = _resolve_version(target_version)
     current_start: int | None = None
     base_max = base_series[time_col].max() if not base_series.empty else float('-inf')
 
-    while (current_start is None or current_start > base_max) and \
+    while current_version is not None and \
+            (current_start is None or current_start > base_max) and \
             str(current_version) in delta_metadata:
 
         file_path = delta_dir / f"asof={current_version}.parquet"
@@ -474,14 +492,22 @@ def reconstruct_asof(
         metadata = delta_metadata[str(current_version)]
         current_start = metadata[start_key]
 
-        prev_time = step_back_one(current_start) #type:ignore
+        prev_time = step_back_one(current_start)  # type: ignore
         if prev_time is None:
             break
 
-        current_version = max_version_lookup.get(str(prev_time))
-        if current_version is None:
+        # max_version_lookup may point beyond our build range;
+        # resolve to the nearest available delta
+        raw_version = max_version_lookup.get(str(prev_time))
+        if raw_version is None:
             break
+        current_version = _resolve_version(int(raw_version))
 
     if not base_series.empty:
         result.append(base_series)
+    if not result:
+        logger.warning(
+            "No data found for version=%d in %s.", target_version, entity_dir,
+        )
+        return pd.DataFrame(columns=finalized_df.columns)
     return pd.concat(result).sort_values(time_col).reset_index(drop=True)

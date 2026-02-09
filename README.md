@@ -1,72 +1,51 @@
-# asof
+# ts-asof
 
-Reconstruct versioned time series as they appeared at any point in time.
+The goal of this library is to help reconstruct versioned `as_of` time series snapshots. A necessary step for backtesting in nowcast environments. To be specific, given a finalized dataset, and access to revisions, this library reconstructs an `as_of` series for any time in the query window to allow users to obtain a snapshot of the series that was *as of* the desired date.
+
+Notably, this setup assumes that:
+1. You have access to a ‘finalized’ ground truth dataset, which reflects revisions over all time periods before the end date. 
+2. You have access to ‘snapshots’ or ‘issues’ which are incomplete, but provide revisions of past data that were known as of the date of issue.
+
+For example, in the `fluview` endpoint in the `epidata` api, there is an `issue` parameter that yeilds all revisions as of the issue date. So if I am interested in knowing what was known about 2019-01 *influenza-like-illness* statstics as of 2020-01, we can track all the issues between the initial release on 2019-01 until 2020-01. Ths doesn't prevent further updates or revisions of the 2019-01 records to be updated after 2020-01 of course, but it provides an accurate snapshot of 2019-01 statistics *as of* 2020-01. 
 
 ## Install
-
+With `uv`:
 ```bash
 uv add asof
-# With Epidata support:
-uv add asof[epidata]
 ```
+
+and with `pip`, 
+```bash 
+pip install asof
+```
+
+A note on dependencies. The current iteration requires `epidata` as it was designed with the sole purpose of creating an `asof` version of the `fluview` endpoint. Future iterations can remove this dependencies or modify to opt into it. 
 
 ## Usage
 
-```python
-from asof import Dataset
-from asof.sources import EpidataSource
+Please see the */examples/wili_example.ipynb * for a demo and extra notes on usage. 
 
-ds = Dataset(
-    source=EpidataSource(series="wili", regions=["nat"]),
-    start=201650,
-    end=202352,
-)
+## Algorithm
+**Step 1: Build Phase**
+1. **Fetch finalized snapshot once**: Query all data with complete revision history `[start, end]`
+2. **Identify stable base**: Find all time points finalized before an initial version threshold (these never change again)
+3. **Build delta chain**: For each subsequent version *v*:
+   - Fetch only the **active revision window** — time points where `max_version > v`
+   - Skip time points already finalized (key optimization!)
+   - Store sparse delta containing only revised values
 
-# Reconstruct the series as it was known at epiweek 202001
-df = ds.asof(202001)
-```
+**Step 2: Reconstruction**
+To reconstruct the series as of version *V*:
+1. Load delta file for version *V*
+2. Extract its start time point *t*<sub>start</sub> from metadata
+3. Step back one time point: *t*<sub>prev</sub> = *t*<sub>start</sub> - 1
+4. Look up which version last modified *t*<sub>prev</sub> in the pre-computed `max_version_lookup`
+5. Jump to that version's delta file and repeat
+6. Terminate when reaching the frozen base
+7. Concatenate: `base ⊕ delta_chain`
 
-The first `.asof()` call builds a local delta cache by fetching from the data source. Subsequent calls reconstruct instantly from cache.
+## Future Improvements 
+1. Added flexibility. The main pain point in the current iteration is the lack of a unified `datetime` handling of the date indices. This is very fragile and would be the key item to address for future iterations. 
+2. Allowing for a `step` parameter for reconstruction. This saves time and space if the user does not need `asof` reconstruction for every time step between `start_date + init_window_size` and `end_date`, but rather, every `step`. 
+3. Support for other data streams. As of now, only `epidata` support for the `fluview` endpoint is available. This framework can easily be extended to other `epidata` API endpoints that don't have `asof` available. However, support for other streams (e.g., FRED) would require the user to build a custom `DataSource` abstract base class that mimics the implementation in `epidata.py` for `DelphiEpidata`.
 
-## Panel data
-
-```python
-ds = Dataset(
-    source=EpidataSource(series="wili", regions=["nat", "ca", "tx"]),
-    start=201650,
-    end=202352,
-)
-
-df_nat = ds.asof(202001, entity="nat")   # single region
-df_all = ds.asof(202001)                  # all regions
-```
-
-## Custom data sources
-
-Implement the `DataSource` protocol to support any revisable data:
-
-```python
-from asof.sources.base import DataSource
-
-class MySource:
-    @property
-    def time_col(self) -> str:
-        return "date"
-
-    @property
-    def version_col(self) -> str:
-        return "revision"
-
-    @property
-    def entity_col(self) -> str | None:
-        return None
-
-    def fetch_snapshot(self, start, end):
-        ...  # return DataFrame with time_col and version_col
-
-    def fetch_revision(self, version, start, end):
-        ...  # return DataFrame or None
-
-    def cache_key_params(self) -> dict:
-        return {"source": "my_source"}
-```

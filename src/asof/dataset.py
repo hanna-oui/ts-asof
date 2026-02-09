@@ -21,7 +21,7 @@ class Dataset:
 
     Args:
         source: A `DataSource` implementation (e.g.
-            Epidata). See \sources\epidata for example implementation. 
+            Epidata). 
         start: First time index value (inclusive).
         end: Last time index value (inclusive).
         cache_dir: Explicit directory path for storing intermediate files.  

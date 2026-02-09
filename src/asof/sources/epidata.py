@@ -7,7 +7,8 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 _SERIES_MAP = {
-    "wili": "fluview",
+    "fluview": "fluview",
+    "wili" : "fluview"
 }
 
 
@@ -15,7 +16,7 @@ class DelphiEpidata(DataSource):
     """DataSource implementation for the CMU Delphi Epidata API.
 
     Args:
-        series: Epidata series name (default is ``"wili"``).
+        series: Epidata series name. Just fluview support right now
         regions: Region codes, e.g. ``["nat"]`` or ``["nat", "ca", "tx"]``.
         api_key: Delphi API key.  Falls back to the ``DELPHI_API_KEY``
             environment variable when *None*.
@@ -25,7 +26,7 @@ class DelphiEpidata(DataSource):
         self,
         series: str,
         regions: list[str],
-        api_key: str,
+        api_key: str | None,
     ) -> None:
         if series not in _SERIES_MAP:
             raise ValueError(

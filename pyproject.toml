@@ -22,6 +22,8 @@ classifiers = [
 
 dependencies = [
     "delphi-epidata>=4.1.25",
+    "dotenv>=0.9.9",
+    "matplotlib>=3.10.8",
     "pandas>=2.0",
     "pyarrow>=14.0",
     "tqdm>=4.67.3",
